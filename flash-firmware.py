@@ -12,8 +12,8 @@ import time
 import platform
 import pync
 
-if platform.system() != 'Darwin':
-    print(colored("Sorry, this is for Mac OS only", 'red'))
+# if platform.system() != 'Darwin':
+#     print(colored("Sorry, this is for Mac OS only", 'red'))
 os.system('clear')
 os.system("python3 -m pip install adafruit-ampy termcolor requests pync")
 # os.system('git clone https://github.com/adafruit/ampy.git')
@@ -44,20 +44,6 @@ def break_line(string):
     _len = (terminal_size - len(string)) // 2 - 2
     print(colored('='*_len+' ' +string+' '+'='*_len, 'yellow'))
 
-break_line("Step 1 : Checking for Connected Port")
-is_slab_available = False
-for i, port in enumerate(list_port):
-    print(colored('[{}] {}'.format(i, port), 'green' if 'tty.SLAB_USBtoUART' not in port else 'magenta'))
-    if 'tty.SLAB_USBtoUART' in port:
-        is_slab_available = True
-
-
-if is_slab_available == False:
-    print(colored("No USB Driver detected", 'red'))
-    sys.exit()
-else:
-    print(colored(" => USB Driver Found"))
-
 
 def update_device_worker(port):
     break_line("Step 1: Start workiing on {}".format(port))
@@ -69,7 +55,8 @@ def update_device_worker(port):
                 mac_address = line.split(' ')[-1]
 
         print('MAC Address: ', mac_address)
-    except Exception:
+    except Exception as err:
+        print(colored(err, 'red'))
         print(colored("The controller is used by other process, unplug and plug it again will solve", 'red'))
         sys.exit()
 
@@ -111,7 +98,7 @@ def update_device_worker(port):
         print(colored("=> Creating Backup file : snapshot.{}.bin".format(name), 'magenta'))
         filename = time.strftime("snapshot.{}.bin".format(filename))
 
-        os.system("python3 -m esptool -p {} -b 921600 read_flash 0x00  0x400000 {}".format(port, filename))
+        os.system("python3 -m esptool -p {} -b 115200 read_flash 0x00  0x400000 {}".format(port, filename))
         print(colored("=> Backup file saved {}".format(filename), "magenta"))
     except Exception:
         pass
@@ -134,27 +121,27 @@ def update_device_worker(port):
 
 
     break_line("Step 6: Formatting Device Flash")
-    os.system("python3 -m esptool -p {} -b 921600 erase_flash".format(port))
+    os.system("python3 -m esptool -p {} -b 115200 erase_flash".format(port))
     print(colored("=> Great :D, Everything is cleared", 'magenta'))
 
     break_line("Step 7: Burning Firmware")
-    os.system("python3 -m esptool -p {} -b 921600 write_flash -z 0x1000 esp32-idf3-20190125-v1.10.bin".format(port))
+    os.system("python3 -m esptool -p {} -b 115200 write_flash -z 0x1000 esp32-idf3-20190125-v1.10.bin".format(port))
 
 
     break_line("Step 8: Flasing Boot File ")
-    time.sleep(5)
-    os.system('ampy -p {} put start.mpy'.format(port))
+    time.sleep(13)
+    os.system('ampy -p {} -d 5 put start.mpy'.format(port))
 
     with open('#system.uuid','w') as f:
         f.write(hexkey)
-    os.system('ampy -p {} put "#system.uuid"'.format(port))
+    os.system('ampy -p {} -d 5 put "#system.uuid"'.format(port))
 
     with open('boot.py', 'w') as f:
         f.write('import start')
 
-    os.system('ampy -p {} put boot.py'.format(port))
+    os.system('ampy -p {} -d 5 put boot.py'.format(port))
     print(colored("=> Firmware Flashed", "magenta"))
-    # os.system("python3 -m esptool -p /dev/tty.SLAB_USBtoUART -b 921600 write_flash -z 0x1000 esp32-idf3-20190125-v1.10.bin")
+    # os.system("python3 -m esptool -p /dev/tty.SLAB_USBtoUART -b 115200 write_flash -z 0x1000 esp32-idf3-20190125-v1.10.bin")
 
 
 
@@ -163,14 +150,37 @@ def update_device_worker(port):
         f.write(json.dumps(saved_data, indent = 4))
 
 
-list_port = map(lambda x : x.strip().rstrip(), subprocess.getoutput("ls /dev/tty.SLAB*").splitlines())
-URLS = []
-for port in list_port:
-    print('Port: ', port)
-    URLS.append(port)
+if '--port' not in sys.argv:
+    list_port = list(map(lambda x : x.strip().rstrip(), subprocess.getoutput("ls /dev/tty.SLAB*").splitlines())) + list(map(lambda x : x.strip().rstrip(), subprocess.getoutput("ls /dev/tty.wch*").splitlines()))
+    list_port = list(filter(lambda x: "No such file or directory" not in x, list_port))
+    break_line("Step 1 : Checking for Connected Port")
+    is_slab_available = False
+    for i, port in enumerate(list_port):
+        print(colored('[{}] {}'.format(i, port), 'green' if 'tty.SLAB_USBtoUART' not in port else 'magenta'))
+        if 'tty.SLAB_USBtoUART' in port:
+            is_slab_available = True
+        if 'tty.wchusbserial' in port:
+            is_slab_available = True
 
-for url in URLS:
-    update_device_worker(port = url)
+
+    if is_slab_available == False:
+        print(colored("No USB Driver detected", 'red'))
+        sys.exit()
+    else:
+        print(colored(" => USB Driver Found"))
+
+
+
+    URLS = []
+    for port in list_port:
+        print('Port: ', port)
+        URLS.append(port)
+
+    for url in URLS:
+        update_device_worker(port = url)
+
+else:
+    update_device_worker(sys.argv[-1])
 
 
 
