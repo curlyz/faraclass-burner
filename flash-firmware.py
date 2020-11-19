@@ -10,7 +10,7 @@ import binascii
 from termcolor import colored
 import time
 import platform
-import pync
+# import pync
 
 # if platform.system() != 'Darwin':
 #     print(colored("Sorry, this is for Mac OS only", 'red'))
@@ -204,7 +204,7 @@ else:
 #         else:
 #             print('%r page is %d bytes' % (url, len(data)))
 
-pync.notify(title = "Firmware Updated", message = "Please send the file faraclass-devices-check.json")
+# pync.notify(title = "Firmware Updated", message = "Please send the file faraclass-devices-check.json")
 
 print(colored("""
     When you are done with ALL your device, please send me the faraclass-devices-check.json file
